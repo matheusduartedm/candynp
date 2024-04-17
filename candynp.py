@@ -222,37 +222,27 @@ def load_data(path):
     return study, usecir
 
 
-def generate_candidates(study, usecir, max_use):
-    circuits = list(study.find("Circuit.*"))
-    nc_parallel = parallel_circuit_numbers(circuits)
-    line_candidates = []
-    for circuit in circuits:
-        if circuit.get("FlagMonitored") == 1:
-            max_circ_use = usecir[circuit.name].max()
-            if max_circ_use > max_use:
-                print(f"{circuit.name}: {max_circ_use}")
-                key = (circuit.get("RefBuses")[0].code, circuit.get("RefBuses")[1].code)
-                number_candidates = max(0, int(max_circ_use / max_use) - 1)
-                for i in range(number_candidates + 1):
-                    line_candidate = LineCandidate()
-                    line_candidate.from_bus = circuit.get("RefBuses")[0].code
-                    line_candidate.to_bus = circuit.get("RefBuses")[1].code
-                    line_candidate.updated_nc = nc_parallel[key] + i
-                    nc_parallel[key] += 1
-                    line_candidate.owner = circuit.get("O")
-                    line_candidate.resistance = circuit.get("R")
-                    line_candidate.reactance = circuit.get("X")
-                    line_candidate.susceptance = circuit.get("MVAr")
-                    line_candidate.nominal_rating = circuit.get("Rn")
-                    line_candidate.emergency_rating = circuit.get("Re")
-                    line_candidate.outage_prob = circuit.get("Prob")
-                    line_candidate.ref_cost = circuit.get("Cost")
-                    line_candidate.circuit_type = circuit.get("Type")
-                    line_candidate.km = circuit.get("Km")
-                    line_candidate.name = ""
-                    line_candidate.investment_cost = circuit.get("Cost")
-                    line_candidates.append(line_candidate)
+def create_line_candidate(circuit):
+    line_candidate = LineCandidate()
+    line_candidate.from_bus = circuit.get("RefBuses")[0].code
+    line_candidate.to_bus = circuit.get("RefBuses")[1].code
+    line_candidate.updated_nc = circuit.get("Nc")
+    line_candidate.owner = circuit.get("O")
+    line_candidate.resistance = circuit.get("R")
+    line_candidate.reactance = circuit.get("X")
+    line_candidate.susceptance = circuit.get("MVAr")
+    line_candidate.nominal_rating = circuit.get("Rn")
+    line_candidate.emergency_rating = circuit.get("Re")
+    line_candidate.outage_prob = circuit.get("Prob")
+    line_candidate.ref_cost = circuit.get("Cost")
+    line_candidate.circuit_type = circuit.get("Type")
+    line_candidate.km = circuit.get("Km")
+    line_candidate.name = ""
+    line_candidate.investment_cost = circuit.get("Cost")
+    return line_candidate
 
+
+def create_dlad(line_candidates):
     header = ["$From bus", "To bus", "Circuit number", "Owner", "Resistance", "Reactance", "Susceptance",
               "Nominal rating",
               "Emergency rating", "Outage prob.", "Ref. cost", "Circuit type", "(..Km..)", "(........Name..........)",
@@ -264,40 +254,30 @@ def generate_candidates(study, usecir, max_use):
 
     print(f"File 'dlad_candidates.csv' created with {len(line_candidates)} entries.")
 
-    transformers = list(study.find("Transformer.*"))
-    nc_parallel = parallel_circuit_numbers(transformers)
-    trafo_candidates = []
 
-    for transformer in transformers:
-        if transformer.get("FlagMonitored") == 1:
-            max_circ_use = usecir[transformer.name].max() if transformer.name in usecir else 0
-            if max_circ_use > max_use:
-                print(f"{transformer.name}: {max_circ_use}")
-                number_candidates = max(0, int(max_circ_use / max_use))
-                key = (transformer.get("RefBuses")[0].code, transformer.get("RefBuses")[1].code)
-                for i in range(number_candidates):
-                    trafo_candidate = TrafoCandidate()
-                    trafo_candidate.from_bus = transformer.get("RefBuses")[0].code
-                    trafo_candidate.to_bus = transformer.get("RefBuses")[1].code
-                    trafo_candidate.updated_nc = nc_parallel[key] + i
-                    nc_parallel[key] += 1
-                    trafo_candidate.owner = transformer.get("O")
-                    trafo_candidate.resistance = transformer.get("R")
-                    trafo_candidate.reactance = transformer.get("X")
-                    trafo_candidate.min_tap = transformer.get("Tmn")
-                    trafo_candidate.max_tap = transformer.get("Tmx")
-                    trafo_candidate.min_angle = transformer.get("Pmn")
-                    trafo_candidate.max_angle = transformer.get("Pmx")
-                    trafo_candidate.control_type = transformer.get("ControlType")
-                    trafo_candidate.controlled_bus = transformer.get("RefBuses")[0].code
-                    trafo_candidate.nominal_rating = transformer.get("Rn")
-                    trafo_candidate.emergency_rating = transformer.get("Re")
-                    trafo_candidate.outage_prob = transformer.get("Prob")
-                    trafo_candidate.ref_cost = transformer.get("Cost")
-                    trafo_candidate.name = ""
-                    trafo_candidate.investment_cost = transformer.get("Cost")
-                    trafo_candidates.append(trafo_candidate)
+def create_transformer_candidate(transformer):
+    trafo_candidate = TrafoCandidate()
+    trafo_candidate.from_bus = transformer.get("RefBuses")[0].code
+    trafo_candidate.to_bus = transformer.get("RefBuses")[1].code
+    trafo_candidate.owner = transformer.get("O")
+    trafo_candidate.resistance = transformer.get("R")
+    trafo_candidate.reactance = transformer.get("X")
+    trafo_candidate.min_tap = transformer.get("Tmn")
+    trafo_candidate.max_tap = transformer.get("Tmx")
+    trafo_candidate.min_angle = transformer.get("Pmn")
+    trafo_candidate.max_angle = transformer.get("Pmx")
+    trafo_candidate.control_type = transformer.get("ControlType")
+    trafo_candidate.controlled_bus = transformer.get("RefBuses")[0].code
+    trafo_candidate.nominal_rating = transformer.get("Rn")
+    trafo_candidate.emergency_rating = transformer.get("Re")
+    trafo_candidate.outage_prob = transformer.get("Prob")
+    trafo_candidate.ref_cost = transformer.get("Cost")
+    trafo_candidate.name = ""
+    trafo_candidate.investment_cost = transformer.get("Cost")
+    return trafo_candidate
 
+
+def create_dtad(trafo_candidates):
     header = ["$From bus", "To bus", "Circuit number", "Owner", "Resistance", "Reactance", "Min. tap", "Max. tap",
               "Min. angle", "Max. angle", "Control type", "Controlled bus", "Nominal rating", "Emergency rating",
               "Outage prob.", "Ref. cost", "(........Name..........)", "Fixed angle", "Min. limit of nominal rating",
@@ -311,82 +291,65 @@ def generate_candidates(study, usecir, max_use):
 
     print(f"File 'dtad_candidates.csv' created with {len(trafo_candidates)} entries.")
 
-    tr3ws = list(study.find("ThreeWindingsTransformer.*"))
-    nc_parallel = parallel_transformer_numbers_tr3w(tr3ws)
-    tr3w_candidates = []
-    for tr3w in tr3ws:
-        if any([tr3w.get("RefTransformers")[0].get("FlagMonitored"),
-                tr3w.get("RefTransformers")[1].get("FlagMonitored"),
-                tr3w.get("RefTransformers")[2].get("FlagMonitored")]):
-            max_circ_use = max(usecir[tr3w.get("RefTransformers")[0].name].max(),
-                               usecir[tr3w.get("RefTransformers")[1].name].max(),
-                               usecir[tr3w.get("RefTransformers")[2].name].max()) \
-                if (tr3w.get("RefTransformers")[0].name in usecir and
-                    tr3w.get("RefTransformers")[1].name in usecir and
-                    tr3w.get("RefTransformers")[2].name in usecir) \
-                else 0
-            key = (tr3w.get("RefTransformers")[0].get("RefBuses")[0].code,
-                   tr3w.get("RefTransformers")[1].get("RefBuses")[0].code,
-                   tr3w.get("RefTransformers")[2].get("RefBuses")[0].code)
-            print(f"{key}: {max_circ_use}")
-            if max_circ_use > max_use:
-                number_candidates = max(0, int(max_circ_use / max_use))
-                for i in range(number_candidates):
-                    tr3w_candidate = Tr3wCandidate()
-                    tr3w_candidate.primary_bus = tr3w.get("RefTransformers")[0].get("RefBuses")[0].code
-                    tr3w_candidate.secondary_bus = tr3w.get("RefTransformers")[1].get("RefBuses")[0].code
-                    tr3w_candidate.tertiary_bus = tr3w.get("RefTransformers")[2].get("RefBuses")[0].code
-                    tr3w_candidate.internal_bus_number = ""
-                    tr3w_candidate.updated_nc = nc_parallel[key] + i
-                    tr3w_candidate.operation = tr3w.get("O")
-                    tr3w_candidate.resistance_primary_secondary = tr3w.get("RPS")
-                    tr3w_candidate.reactance_primary_secondary = tr3w.get("XPS")
-                    tr3w_candidate.resistance_secondary_tertiary = tr3w.get("RST")
-                    tr3w_candidate.reactance_secondary_tertiary = tr3w.get("XST")
-                    tr3w_candidate.resistance_primary_tertiary = tr3w.get("RPT")
-                    tr3w_candidate.reactance_primary_tertiary = tr3w.get("XPT")
-                    tr3w_candidate.nominal_rating_primary = tr3w.get("RefTransformers")[0].get("Rn")
-                    tr3w_candidate.emergency_rating_primary = tr3w.get("RefTransformers")[0].get("Re")
-                    tr3w_candidate.type_control_primary = tr3w.get("RefTransformers")[0].get("ControlType")
-                    tr3w_candidate.fixed_angle_primary = tr3w.get("RefTransformers")[0].get("Pmn")
-                    tr3w_candidate.min_angle_primary = tr3w.get("RefTransformers")[0].get("Pmn")
-                    tr3w_candidate.max_angle_primary = tr3w.get("RefTransformers")[0].get("Pmx")
-                    tr3w_candidate.min_limit_nominal_rating_primary = tr3w.get("RefTransformers")[0].get("Rn")
-                    tr3w_candidate.max_limit_nominal_rating_primary = tr3w.get("RefTransformers")[0].get("Rn")
-                    tr3w_candidate.min_limit_emergency_rating_primary = tr3w.get("RefTransformers")[0].get("Re")
-                    tr3w_candidate.max_limit_emergency_rating_primary = tr3w.get("RefTransformers")[0].get("Re")
-                    tr3w_candidate.min_tap_primary = tr3w.get("RefTransformers")[0].get("Tmn")
-                    tr3w_candidate.max_tap_primary = tr3w.get("RefTransformers")[0].get("Tmx")
-                    tr3w_candidate.controlled_bus_primary = tr3w.get("RefTransformers")[0].get("RefBuses")[0].code
-                    tr3w_candidate.nominal_rating_secondary = tr3w.get("RefTransformers")[1].get("Rn")
-                    tr3w_candidate.emergency_rating_secondary = tr3w.get("RefTransformers")[1].get("Re")
-                    tr3w_candidate.type_control_secondary = tr3w.get("RefTransformers")[1].get("ControlType")
-                    tr3w_candidate.fixed_angle_secondary = tr3w.get("RefTransformers")[1].get("Pmn")
-                    tr3w_candidate.min_angle_secondary = tr3w.get("RefTransformers")[1].get("Pmn")
-                    tr3w_candidate.max_angle_secondary = tr3w.get("RefTransformers")[1].get("Pmx")
-                    tr3w_candidate.min_limit_nominal_rating_secondary = tr3w.get("RefTransformers")[1].get("Rn")
-                    tr3w_candidate.max_limit_nominal_rating_secondary = tr3w.get("RefTransformers")[1].get("Rn")
-                    tr3w_candidate.min_limit_emergency_rating_secondary = tr3w.get("RefTransformers")[1].get("Re")
-                    tr3w_candidate.max_limit_emergency_rating_secondary = tr3w.get("RefTransformers")[1].get("Re")
-                    tr3w_candidate.min_tap_secondary = tr3w.get("RefTransformers")[1].get("Tmn")
-                    tr3w_candidate.max_tap_secondary = tr3w.get("RefTransformers")[1].get("Tmx")
-                    tr3w_candidate.controlled_bus_secondary = tr3w.get("RefTransformers")[1].get("RefBuses")[0].code
-                    tr3w_candidate.nominal_rating_terciary = tr3w.get("RefTransformers")[2].get("Rn")
-                    tr3w_candidate.emergency_rating_terciary = tr3w.get("RefTransformers")[2].get("Re")
-                    tr3w_candidate.type_control_terciary = tr3w.get("RefTransformers")[2].get("ControlType")
-                    tr3w_candidate.fixed_angle_terciary = tr3w.get("RefTransformers")[2].get("Pmn")
-                    tr3w_candidate.min_angle_terciary = tr3w.get("RefTransformers")[2].get("Pmn")
-                    tr3w_candidate.max_angle_terciary = tr3w.get("RefTransformers")[2].get("Pmx")
-                    tr3w_candidate.min_limit_nominal_rating_terciary = tr3w.get("RefTransformers")[2].get("Rn")
-                    tr3w_candidate.max_limit_nominal_rating_terciary = tr3w.get("RefTransformers")[2].get("Rn")
-                    tr3w_candidate.min_limit_emergency_rating_terciary = tr3w.get("RefTransformers")[2].get("Re")
-                    tr3w_candidate.max_limit_emergency_rating_terciary = tr3w.get("RefTransformers")[2].get("Re")
-                    tr3w_candidate.min_tap_terciary = tr3w.get("RefTransformers")[2].get("Tmn")
-                    tr3w_candidate.max_tap_terciary = tr3w.get("RefTransformers")[2].get("Tmx")
-                    tr3w_candidate.controlled_bus_terciary = tr3w.get("RefTransformers")[2].get("RefBuses")[0].code
-                    tr3w_candidate.investment_cost = tr3w.get("Cost")
-                    tr3w_candidates.append(tr3w_candidate)
 
+def create_tr3w_candidate(tr3w):
+    tr3w_candidate = Tr3wCandidate()
+    tr3w_candidate.primary_bus = tr3w.get("RefTransformers")[0].get("RefBuses")[0].code
+    tr3w_candidate.secondary_bus = tr3w.get("RefTransformers")[1].get("RefBuses")[0].code
+    tr3w_candidate.tertiary_bus = tr3w.get("RefTransformers")[2].get("RefBuses")[0].code
+    tr3w_candidate.internal_bus_number = ""
+    tr3w_candidate.updated_nc = tr3w.get("Nc")
+    tr3w_candidate.operation = tr3w.get("O")
+    tr3w_candidate.resistance_primary_secondary = tr3w.get("RPS")
+    tr3w_candidate.reactance_primary_secondary = tr3w.get("XPS")
+    tr3w_candidate.resistance_secondary_tertiary = tr3w.get("RST")
+    tr3w_candidate.reactance_secondary_tertiary = tr3w.get("XST")
+    tr3w_candidate.resistance_primary_tertiary = tr3w.get("RPT")
+    tr3w_candidate.reactance_primary_tertiary = tr3w.get("XPT")
+    tr3w_candidate.nominal_rating_primary = tr3w.get("RefTransformers")[0].get("Rn")
+    tr3w_candidate.emergency_rating_primary = tr3w.get("RefTransformers")[0].get("Re")
+    tr3w_candidate.type_control_primary = tr3w.get("RefTransformers")[0].get("ControlType")
+    tr3w_candidate.fixed_angle_primary = tr3w.get("RefTransformers")[0].get("Pmn")
+    tr3w_candidate.min_angle_primary = tr3w.get("RefTransformers")[0].get("Pmn")
+    tr3w_candidate.max_angle_primary = tr3w.get("RefTransformers")[0].get("Pmx")
+    tr3w_candidate.min_limit_nominal_rating_primary = tr3w.get("RefTransformers")[0].get("Rn")
+    tr3w_candidate.max_limit_nominal_rating_primary = tr3w.get("RefTransformers")[0].get("Rn")
+    tr3w_candidate.min_limit_emergency_rating_primary = tr3w.get("RefTransformers")[0].get("Re")
+    tr3w_candidate.max_limit_emergency_rating_primary = tr3w.get("RefTransformers")[0].get("Re")
+    tr3w_candidate.min_tap_primary = tr3w.get("RefTransformers")[0].get("Tmn")
+    tr3w_candidate.max_tap_primary = tr3w.get("RefTransformers")[0].get("Tmx")
+    tr3w_candidate.controlled_bus_primary = tr3w.get("RefTransformers")[0].get("RefBuses")[0].code
+    tr3w_candidate.nominal_rating_secondary = tr3w.get("RefTransformers")[1].get("Rn")
+    tr3w_candidate.emergency_rating_secondary = tr3w.get("RefTransformers")[1].get("Re")
+    tr3w_candidate.type_control_secondary = tr3w.get("RefTransformers")[1].get("ControlType")
+    tr3w_candidate.fixed_angle_secondary = tr3w.get("RefTransformers")[1].get("Pmn")
+    tr3w_candidate.min_angle_secondary = tr3w.get("RefTransformers")[1].get("Pmn")
+    tr3w_candidate.max_angle_secondary = tr3w.get("RefTransformers")[1].get("Pmx")
+    tr3w_candidate.min_limit_nominal_rating_secondary = tr3w.get("RefTransformers")[1].get("Rn")
+    tr3w_candidate.max_limit_nominal_rating_secondary = tr3w.get("RefTransformers")[1].get("Rn")
+    tr3w_candidate.min_limit_emergency_rating_secondary = tr3w.get("RefTransformers")[1].get("Re")
+    tr3w_candidate.max_limit_emergency_rating_secondary = tr3w.get("RefTransformers")[1].get("Re")
+    tr3w_candidate.min_tap_secondary = tr3w.get("RefTransformers")[1].get("Tmn")
+    tr3w_candidate.max_tap_secondary = tr3w.get("RefTransformers")[1].get("Tmx")
+    tr3w_candidate.controlled_bus_secondary = tr3w.get("RefTransformers")[1].get("RefBuses")[0].code
+    tr3w_candidate.nominal_rating_terciary = tr3w.get("RefTransformers")[2].get("Rn")
+    tr3w_candidate.emergency_rating_terciary = tr3w.get("RefTransformers")[2].get("Re")
+    tr3w_candidate.type_control_terciary = tr3w.get("RefTransformers")[2].get("ControlType")
+    tr3w_candidate.fixed_angle_terciary = tr3w.get("RefTransformers")[2].get("Pmn")
+    tr3w_candidate.min_angle_terciary = tr3w.get("RefTransformers")[2].get("Pmn")
+    tr3w_candidate.max_angle_terciary = tr3w.get("RefTransformers")[2].get("Pmx")
+    tr3w_candidate.min_limit_nominal_rating_terciary = tr3w.get("RefTransformers")[2].get("Rn")
+    tr3w_candidate.max_limit_nominal_rating_terciary = tr3w.get("RefTransformers")[2].get("Rn")
+    tr3w_candidate.min_limit_emergency_rating_terciary = tr3w.get("RefTransformers")[2].get("Re")
+    tr3w_candidate.max_limit_emergency_rating_terciary = tr3w.get("RefTransformers")[2].get("Re")
+    tr3w_candidate.min_tap_terciary = tr3w.get("RefTransformers")[2].get("Tmn")
+    tr3w_candidate.max_tap_terciary = tr3w.get("RefTransformers")[2].get("Tmx")
+    tr3w_candidate.controlled_bus_terciary = tr3w.get("RefTransformers")[2].get("RefBuses")[0].code
+    tr3w_candidate.investment_cost = tr3w.get("Cost")
+    return tr3w_candidate
+
+
+def create_dt3ad(tr3w_candidates):
     header = ["$Primary bus", "Secondary bus", "Tertiary bus", "Internal bus number", "Circuit number", "Operation",
               "Resistance primary-secondary", "Reactance primary-secondary", "Resistance secondary-tertiary",
               "Reactance secondary-tertiary", "Resistance primary-tertiary", "Reactance primary-tertiary",
@@ -414,15 +377,167 @@ def generate_candidates(study, usecir, max_use):
     print(f"File 'dt3ad_candidates.csv' created with {len(tr3w_candidates)} entries.")
 
 
+def generate_candidates_from_csv(csv_path, study):
+    df = pd.read_csv(csv_path)
+    line_candidates = []
+    trafo_candidates = []
+    tr3w_candidates = []
+
+    circuits = list(study.find("Circuit.*"))
+    transformers = list(study.find("Transformer.*"))
+    three_windings = list(study.find("ThreeWindingsTransformer.*"))
+
+    nc_parallel_circuits = parallel_circuit_numbers(circuits)
+    nc_parallel_transformers = parallel_circuit_numbers(transformers)
+    nc_parallel_three_windings = parallel_transformer_numbers_tr3w(three_windings)
+
+    for index, row in df.iterrows():
+        num_candidates = int(row['Quantity'])
+        candidate_name = row['(........Name..........)'].strip()
+
+        element_found = False
+        for element in circuits + transformers + three_windings:
+            if candidate_name == element.name:
+                element_found = True
+                for _ in range(num_candidates):
+                    if element in circuits:
+                        candidate = create_line_candidate(element)
+                        key = (element.get("RefBuses")[0].code, element.get("RefBuses")[1].code)
+                    elif element in transformers:
+                        candidate = create_transformer_candidate(element)
+                        key = (element.get("RefBuses")[0].code, element.get("RefBuses")[1].code)
+                    elif element in three_windings:
+                        candidate = create_tr3w_candidate(element)
+                        key = (
+                            element.get("RefTransformers")[0].get("RefBuses")[0].code,
+                            element.get("RefTransformers")[1].get("RefBuses")[0].code,
+                            element.get("RefTransformers")[2].get("RefBuses")[0].code
+                        )
+
+                    if element in transformers:
+                        nc_parallel = nc_parallel_transformers
+                    elif element in three_windings:
+                        nc_parallel = nc_parallel_three_windings
+                    else:
+                        nc_parallel = nc_parallel_circuits
+
+                    if key not in nc_parallel:
+                        nc_parallel[key] = 0
+
+                    candidate.updated_nc = nc_parallel[key]
+                    nc_parallel[key] += 1
+                    candidate.lifetime = row['Lifetime']
+                    candidate.investment_cost = row['Investment cost']
+                    candidate.o_m_cost = row['O&M cost']
+
+                    if element in circuits:
+                        line_candidates.append(candidate)
+                    elif element in transformers:
+                        trafo_candidates.append(candidate)
+                    elif element in three_windings:
+                        tr3w_candidates.append(candidate)
+
+        if not element_found:
+            print(f"No matching element found for candidate name: {candidate_name}")
+
+    if line_candidates:
+        create_dlad(line_candidates)
+    if trafo_candidates:
+        create_dtad(trafo_candidates)
+    if tr3w_candidates:
+        create_dt3ad(tr3w_candidates)
+
+    print(
+        f"Generated candidates from CSV: {len(line_candidates)} lines, {len(trafo_candidates)} trafos, {len(tr3w_candidates)} tr3ws.")
+
+
+def generate_candidates_from_usecir(study, usecir, max_use):
+    circuits = list(study.find("Circuit.*"))
+    nc_parallel = parallel_circuit_numbers(circuits)
+    line_candidates = []
+    for circuit in circuits:
+        if circuit.get("FlagMonitored") == 1:
+            max_circ_use = usecir[circuit.name].max()
+            if max_circ_use > max_use:
+                print(f"{circuit.name}: {max_circ_use}")
+                key = (circuit.get("RefBuses")[0].code, circuit.get("RefBuses")[1].code)
+                number_candidates = max(0, int(max_circ_use / max_use) - 1)
+                for i in range(number_candidates + 1):
+                    line_candidate = create_line_candidate(circuit)
+                    line_candidate.updated_nc = nc_parallel[key] + i
+                    nc_parallel[key] += 1
+                    line_candidates.append(line_candidate)
+
+    create_dlad(line_candidates)
+
+    transformers = list(study.find("Transformer.*"))
+    nc_parallel = parallel_circuit_numbers(transformers)
+    trafo_candidates = []
+
+    for transformer in transformers:
+        if transformer.get("FlagMonitored") == 1:
+            max_circ_use = usecir[transformer.name].max() if transformer.name in usecir else 0
+            if max_circ_use > max_use:
+                print(f"{transformer.name}: {max_circ_use}")
+                number_candidates = max(0, int(max_circ_use / max_use))
+                key = (transformer.get("RefBuses")[0].code, transformer.get("RefBuses")[1].code)
+                for i in range(number_candidates):
+                    trafo_candidate = create_transformer_candidate(transformer)
+                    trafo_candidates.append(trafo_candidate)
+
+    create_dtad(trafo_candidates)
+
+    tr3ws = list(study.find("ThreeWindingsTransformer.*"))
+    nc_parallel = parallel_transformer_numbers_tr3w(tr3ws)
+    tr3w_candidates = []
+    for tr3w in tr3ws:
+        if any([tr3w.get("RefTransformers")[0].get("FlagMonitored"),
+                tr3w.get("RefTransformers")[1].get("FlagMonitored"),
+                tr3w.get("RefTransformers")[2].get("FlagMonitored")]):
+            max_circ_use = max(usecir[tr3w.get("RefTransformers")[0].name].max(),
+                               usecir[tr3w.get("RefTransformers")[1].name].max(),
+                               usecir[tr3w.get("RefTransformers")[2].name].max()) \
+                if (tr3w.get("RefTransformers")[0].name in usecir and
+                    tr3w.get("RefTransformers")[1].name in usecir and
+                    tr3w.get("RefTransformers")[2].name in usecir) \
+                else 0
+            key = (tr3w.get("RefTransformers")[0].get("RefBuses")[0].code,
+                   tr3w.get("RefTransformers")[1].get("RefBuses")[0].code,
+                   tr3w.get("RefTransformers")[2].get("RefBuses")[0].code)
+            print(f"{key}: {max_circ_use}")
+            if max_circ_use > max_use:
+                number_candidates = max(0, int(max_circ_use / max_use))
+                for i in range(number_candidates):
+                    tr3w_candidate = create_tr3w_candidate(tr3w)
+                    tr3w_candidate.updated_nc = nc_parallel[key] + i
+                    tr3w_candidates.append(tr3w_candidate)
+
+    create_dt3ad(tr3w_candidates)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate candidates for Network Expansion Planning")
-    parser.add_argument("max_use", type=int, default=80, help="Maximum usage threshold")
-    parser.add_argument("path", type=str, help="Path to the case directory")
+
+    subparsers = parser.add_subparsers(dest='command', help='commands')
+
+    usecir_parser = subparsers.add_parser('usecir', help='Use usecir file for generating candidates')
+    usecir_parser.add_argument('max_use', type=int, help='Maximum usage threshold')
+    usecir_parser.add_argument('path', type=str, help='Path to the case directory')
+
+    csv_parser = subparsers.add_parser('csv', help='Use CSV file for candidate generation')
+    csv_parser.add_argument('path', type=str, help='Path to the case directory')
 
     args = parser.parse_args()
 
-    study, usecir = load_data(args.path)
-    generate_candidates(study, usecir, args.max_use)
+    if args.command == 'usecir':
+        study, usecir = load_data(args.path)
+        generate_candidates_from_usecir(study, usecir, args.max_use)
+    elif args.command == 'csv':
+        study, _ = load_data(args.path)
+        csv_path = os.path.join(args.path, "candidates.csv")
+        generate_candidates_from_csv(csv_path, study)
+    else:
+        parser.print_help()
 
 
 if __name__ == "__main__":
