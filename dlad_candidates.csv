@@ -1,0 +1,5 @@
+$From bus,To bus,Circuit number,Owner,Resistance,Reactance,Susceptance,Nominal rating,Emergency rating,Outage prob.,Ref. cost,Circuit type,(..Km..),(........Name..........),Investment cost,Currency,O&M cost,Discount rate,Lifetime,Belongs to the study,dec_type,min_date,min_date,max_date,max_date
+73118,73131,2,A,0.398,3.026,0.438,120.0,120.0,0.0,0.0,0,8.9,,0.0,0,0,0,0,0,0,1,2023,1,2200
+73139,73146,2,A,0.141,0.249,0.116,26.1,26.1,0.0,0.0,0,0.7,,0.0,0,0,0,0,0,0,1,2023,1,2200
+73320,73330,2,A,0.0,0.0,0.0,25.0,25.0,0.0,0.0,0,0.0,,0.0,0,0,0,0,0,0,1,2023,1,2200
+73321,73330,2,A,0.033,0.158,0.001,25.0,25.0,0.0,0.0,0,1.0,,0.0,0,0,0,0,0,0,1,2023,1,2200
