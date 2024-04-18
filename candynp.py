@@ -26,7 +26,7 @@ class LineCandidate:
     o_m_cost = 0
     discount_rate = 0
     lifetime = 0
-    belongs_to_the_study = 0
+    belongs_to_the_study = 1
     dec_type = 0
     min_date_month = 1
     min_date_year = 2023
@@ -70,7 +70,7 @@ class TrafoCandidate:
     o_m_cost = 0
     discount_rate = 0
     lifetime = 0
-    belongs_to_the_study = 0
+    belongs_to_the_study = 1
     dec_type = 0
     min_date_month = 1
     min_date_year = 2023
@@ -154,7 +154,7 @@ class Tr3wCandidate:
     o_m_cost = 0
     discount_rate = 0
     lifetime = 0
-    belongs_to_the_study = 0
+    belongs_to_the_study = 1
     dec_type = 0
     min_date_month = 1
     min_date_year = 2023
@@ -216,10 +216,31 @@ def parallel_transformer_numbers_tr3w(tr3ws):
     return nc_parallel
 
 
-def load_data(path):
-    study = factory.load_study(path, "Netplan")
+def read_usecir(path):
     usecir = pd.read_csv(os.path.join(path, "usecir.csv"), skiprows=3)
-    return study, usecir
+    return usecir
+
+
+def read_dbae(path):
+    dbae_path = os.path.join(path, "dbae.dat")
+    buses = pd.read_fwf(dbae_path, colspecs=[(0, 6)], skiprows=2, header=None)
+    return set(buses[0].dropna().astype(int))
+
+
+def write_dtad(path, trafo_candidates):
+
+    header = ["$From bus", "To bus", "Circuit number", "Owner", "Resistance", "Reactance", "Min. tap", "Max. tap",
+              "Min. angle", "Max. angle", "Control type", "Controlled bus", "Nominal rating", "Emergency rating",
+              "Outage prob.", "Ref. cost", "(........Name..........)", "Fixed angle", "Min. limit of nominal rating",
+              "Max limit of nominal rating", "Min limit of emergency rating", "Max limit of emergency rating",
+              "Investment cost", "Currency", "O&M cost", "Discount rate", "Lifetime", "Belongs to the study",
+              "dec_type", "min_date", "min_date", "max_date", "max_date"]
+
+    df = pd.DataFrame([tc.to_list() for tc in trafo_candidates], columns=header)
+    dtad_path = os.path.join(path, "dtad_candidates.csv")
+    df.to_csv(dtad_path, index=False)
+
+    print(f"File 'dtad_candidates.csv' created with {len(trafo_candidates)} entries.")
 
 
 def create_line_candidate(circuit):
@@ -242,7 +263,7 @@ def create_line_candidate(circuit):
     return line_candidate
 
 
-def create_dlad(line_candidates):
+def write_dlad(path, line_candidates):
     header = ["$From bus", "To bus", "Circuit number", "Owner", "Resistance", "Reactance", "Susceptance",
               "Nominal rating",
               "Emergency rating", "Outage prob.", "Ref. cost", "Circuit type", "(..Km..)", "(........Name..........)",
@@ -250,7 +271,8 @@ def create_dlad(line_candidates):
               "dec_type",
               "min_date", "min_date", "max_date", "max_date"]
     df = pd.DataFrame([line_candidate.to_list() for line_candidate in line_candidates], columns=header)
-    df.to_csv("dlad_candidates.csv", index=False)
+    dlad_path = os.path.join(path, "dlad_candidates.csv")
+    df.to_csv(dlad_path, index=False)
 
     print(f"File 'dlad_candidates.csv' created with {len(line_candidates)} entries.")
 
@@ -277,17 +299,17 @@ def create_transformer_candidate(transformer):
     return trafo_candidate
 
 
-def create_dtad(trafo_candidates):
+def write_dtad(path, trafo_candidates):
     header = ["$From bus", "To bus", "Circuit number", "Owner", "Resistance", "Reactance", "Min. tap", "Max. tap",
               "Min. angle", "Max. angle", "Control type", "Controlled bus", "Nominal rating", "Emergency rating",
               "Outage prob.", "Ref. cost", "(........Name..........)", "Fixed angle", "Min. limit of nominal rating",
               "Max limit of nominal rating", "Min limit of emergency rating", "Max limit of emergency rating",
               "Investment cost", "Currency", "O&M cost", "Discount rate", "Lifetime", "Belongs to the study",
-              "dec_type",
-              "min_date", "min_date", "max_date", "max_date"]
+              "dec_type", "min_date", "min_date", "max_date", "max_date"]
 
     df = pd.DataFrame([trafo_candidate.to_list() for trafo_candidate in trafo_candidates], columns=header)
-    df.to_csv("dtad_candidates.csv", index=False)
+    dtad_path = os.path.join(path, "dtad_candidates.csv")
+    df.to_csv(dtad_path, index=False)
 
     print(f"File 'dtad_candidates.csv' created with {len(trafo_candidates)} entries.")
 
@@ -349,39 +371,39 @@ def create_tr3w_candidate(tr3w):
     return tr3w_candidate
 
 
-def create_dt3ad(tr3w_candidates):
+def write_dt3ad(path, tr3w_candidates):
     header = ["$Primary bus", "Secondary bus", "Tertiary bus", "Internal bus number", "Circuit number", "Operation",
               "Resistance primary-secondary", "Reactance primary-secondary", "Resistance secondary-tertiary",
               "Reactance secondary-tertiary", "Resistance primary-tertiary", "Reactance primary-tertiary",
-              "Outage prob.",
-              "Ref. cost", "(..Date..)", "Condition", "Transformer number", "(.........Name.........)",
-              "Nominal rating",
-              "Emergency rating", "Type control", "Fixed angle", "Min. angle", "Max. angle",
-              "Min limit of nominal rating",
-              "Max limit of nominal rating", "Min limit of emergency rating", "Max limit of emergency rating",
-              "Min tap",
+              "Outage prob.", "Ref. cost", "(..Date..)", "Condition", "Transformer number", "(.........Name.........)",
+              "Nominal rating", "Emergency rating", "Type control", "Fixed angle", "Min. angle", "Max. angle",
+              "Min limit of nominal rating", "Max limit of nominal rating", "Min limit of emergency rating",
+              "Max limit of emergency rating", "Min tap",
               "Max tap", "Steps number", "Controlled bus", "Nominal rating", "Emergency rating", "Type control",
               "Fixed angle", "Min. angle", "Max. angle", "Min limit of nominal rating", "Max limit of nominal rating",
               "Min limit of emergency rating", "Max limit of emergency rating", "Min tap", "Max tap", "Steps number",
               "Controlled bus", "Nominal rating", "Emergency rating", "Type control", "Fixed angle", "Min. angle",
               "Max. angle", "Min limit of nominal rating", "Max limit of nominal rating",
               "Min limit of emergency rating",
-              "Max limit of emergency rating", "Min tap", "Max tap", "Steps number", "Controlled bus",
-              "Investment cost",
+              "Max limit of emergency rating", "Min tap", "Max tap", "Steps number", "Controlled bus","Investment cost",
               "Currency", "O&M cost", "Discount rate", "Lifetime", "Belongs to the study", "dec_type", "min_date",
               "min_date", "max_date", "max_date"]
 
     df = pd.DataFrame([tr3w_candidate.to_list() for tr3w_candidate in tr3w_candidates], columns=header)
-    df.to_csv("dt3ad_candidates.csv", index=False)
+    dt3ad_path = os.path.join(path, "dt3ad_candidates.csv")
+    df.to_csv(dt3ad_path, index=False)
 
     print(f"File 'dt3ad_candidates.csv' created with {len(tr3w_candidates)} entries.")
 
 
-def generate_candidates_from_csv(csv_path, study):
+def generate_candidates_from_csv(path):
+    csv_path = os.path.join(path, "candidates.csv")
     df = pd.read_csv(csv_path)
     line_candidates = []
     trafo_candidates = []
     tr3w_candidates = []
+
+    study = factory.load_study(path, "Netplan")
 
     circuits = list(study.find("Circuit.*"))
     transformers = list(study.find("Transformer.*"))
@@ -429,6 +451,7 @@ def generate_candidates_from_csv(csv_path, study):
                     candidate.lifetime = row['Lifetime']
                     candidate.investment_cost = row['Investment cost']
                     candidate.o_m_cost = row['O&M cost']
+                    candidate.min_date_year = row['min_date']
 
                     if element in circuits:
                         line_candidates.append(candidate)
@@ -441,17 +464,22 @@ def generate_candidates_from_csv(csv_path, study):
             print(f"No matching element found for candidate name: {candidate_name}")
 
     if line_candidates:
-        create_dlad(line_candidates)
+        write_dlad(path, line_candidates)
     if trafo_candidates:
-        create_dtad(trafo_candidates)
+        dbae_buses = read_dbae(path)
+        trafo_candidates_filtered = [tc for tc in trafo_candidates if int(tc.to_bus) not in dbae_buses]
+        write_dtad(path, trafo_candidates_filtered)
     if tr3w_candidates:
-        create_dt3ad(tr3w_candidates)
+        write_dt3ad(path, tr3w_candidates)
 
     print(
         f"Generated candidates from CSV: {len(line_candidates)} lines, {len(trafo_candidates)} trafos, {len(tr3w_candidates)} tr3ws.")
 
 
-def generate_candidates_from_usecir(study, usecir, max_use):
+def generate_candidates_from_usecir(path, max_use):
+    usecir = read_usecir(path)
+
+    study = factory.load_study(path, "Netplan")
     circuits = list(study.find("Circuit.*"))
     nc_parallel = parallel_circuit_numbers(circuits)
     line_candidates = []
@@ -468,7 +496,7 @@ def generate_candidates_from_usecir(study, usecir, max_use):
                     nc_parallel[key] += 1
                     line_candidates.append(line_candidate)
 
-    create_dlad(line_candidates)
+    write_dlad(path, line_candidates)
 
     transformers = list(study.find("Transformer.*"))
     nc_parallel = parallel_circuit_numbers(transformers)
@@ -485,7 +513,9 @@ def generate_candidates_from_usecir(study, usecir, max_use):
                     trafo_candidate = create_transformer_candidate(transformer)
                     trafo_candidates.append(trafo_candidate)
 
-    create_dtad(trafo_candidates)
+    dbae_buses = read_dbae(path)
+    trafo_candidates_filtered = [tc for tc in trafo_candidates if int(tc.to_bus) not in dbae_buses]
+    write_dtad(path, trafo_candidates_filtered)
 
     tr3ws = list(study.find("ThreeWindingsTransformer.*"))
     nc_parallel = parallel_transformer_numbers_tr3w(tr3ws)
@@ -512,7 +542,7 @@ def generate_candidates_from_usecir(study, usecir, max_use):
                     tr3w_candidate.updated_nc = nc_parallel[key] + i
                     tr3w_candidates.append(tr3w_candidate)
 
-    create_dt3ad(tr3w_candidates)
+    write_dt3ad(path, tr3w_candidates)
 
 
 def main():
@@ -530,12 +560,9 @@ def main():
     args = parser.parse_args()
 
     if args.command == 'usecir':
-        study, usecir = load_data(args.path)
-        generate_candidates_from_usecir(study, usecir, args.max_use)
+        generate_candidates_from_usecir(args.path, args.max_use)
     elif args.command == 'csv':
-        study, _ = load_data(args.path)
-        csv_path = os.path.join(args.path, "candidates.csv")
-        generate_candidates_from_csv(csv_path, study)
+        generate_candidates_from_csv(args.path)
     else:
         parser.print_help()
 
