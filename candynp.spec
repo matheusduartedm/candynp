@@ -50,8 +50,8 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-	icon='None',
     runtime_tmpdir=None,
+	icon='NONE',
 )
 if not onefile:
 	coll = COLLECT(
