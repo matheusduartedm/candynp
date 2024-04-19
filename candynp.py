@@ -36,7 +36,7 @@ class LineCandidate:
     def to_list(self):
         return [self.from_bus, self.to_bus, self.updated_nc, self.owner, self.resistance, self.reactance,
                 self.susceptance, self.nominal_rating, self.emergency_rating, self.outage_prob, self.ref_cost,
-                self.circuit_type, self.km, self.name, self.investment_cost, self.currency, self.o_m_cost,
+                self.circuit_type, self.km, self.name.strip(), self.investment_cost, self.currency, self.o_m_cost,
                 self.discount_rate, self.lifetime, self.belongs_to_the_study, self.dec_type, self.min_date_month,
                 self.min_date_year, self.max_date_month, self.max_date_year]
 
@@ -80,7 +80,7 @@ class TrafoCandidate:
     def to_list(self):
         return [self.from_bus, self.to_bus, self.updated_nc, self.owner, self.resistance, self.reactance,
                 self.min_tap, self.max_tap, self.min_angle, self.max_angle, self.control_type, self.controlled_bus,
-                self.nominal_rating, self.emergency_rating, self.outage_prob, self.ref_cost, self.name,
+                self.nominal_rating, self.emergency_rating, self.outage_prob, self.ref_cost, self.name.strip(),
                 self.fixed_angle, self.min_limit_nominal_rating, self.max_limit_nominal_rating,
                 self.min_limit_emergency_rating, self.max_limit_emergency_rating, self.investment_cost, self.currency,
                 self.o_m_cost, self.discount_rate, self.lifetime, self.belongs_to_the_study, self.dec_type,
@@ -166,7 +166,7 @@ class Tr3wCandidate:
                 self.operation, self.resistance_primary_secondary, self.reactance_primary_secondary,
                 self.resistance_secondary_tertiary, self.reactance_secondary_tertiary, self.resistance_primary_tertiary,
                 self.reactance_primary_tertiary, self.outage_prob, self.ref_cost, self.date, self.condition,
-                self.transformer_number, self.name, self.nominal_rating_primary, self.emergency_rating_primary,
+                self.transformer_number, self.name.strip(), self.nominal_rating_primary, self.emergency_rating_primary,
                 self.type_control_primary, self.fixed_angle_primary, self.min_angle_primary, self.max_angle_primary,
                 self.min_limit_nominal_rating_primary, self.max_limit_nominal_rating_primary,
                 self.min_limit_emergency_rating_primary, self.max_limit_emergency_rating_primary, self.min_tap_primary,
@@ -228,7 +228,6 @@ def read_dbae(path):
 
 
 def write_dtad(path, trafo_candidates):
-
     header = ["$From bus", "To bus", "Circuit number", "Owner", "Resistance", "Reactance", "Min. tap", "Max. tap",
               "Min. angle", "Max. angle", "Control type", "Controlled bus", "Nominal rating", "Emergency rating",
               "Outage prob.", "Ref. cost", "(........Name..........)", "Fixed angle", "Min. limit of nominal rating",
@@ -375,7 +374,7 @@ def write_dt3ad(path, tr3w_candidates):
     header = ["$Primary bus", "Secondary bus", "Tertiary bus", "Internal bus number", "Circuit number", "Operation",
               "Resistance primary-secondary", "Reactance primary-secondary", "Resistance secondary-tertiary",
               "Reactance secondary-tertiary", "Resistance primary-tertiary", "Reactance primary-tertiary",
-              "Outage prob.", "Ref. cost", "(..Date..)", "Condition", "Transformer number", "(.........Name.........)",
+              "Outage prob.", "Ref. cost", "(..Date..)", "Condition", "Transformer number", "(.........name.strip().........)",
               "Nominal rating", "Emergency rating", "Type control", "Fixed angle", "Min. angle", "Max. angle",
               "Min limit of nominal rating", "Max limit of nominal rating", "Min limit of emergency rating",
               "Max limit of emergency rating", "Min tap",
@@ -385,7 +384,8 @@ def write_dt3ad(path, tr3w_candidates):
               "Controlled bus", "Nominal rating", "Emergency rating", "Type control", "Fixed angle", "Min. angle",
               "Max. angle", "Min limit of nominal rating", "Max limit of nominal rating",
               "Min limit of emergency rating",
-              "Max limit of emergency rating", "Min tap", "Max tap", "Steps number", "Controlled bus","Investment cost",
+              "Max limit of emergency rating", "Min tap", "Max tap", "Steps number", "Controlled bus",
+              "Investment cost",
               "Currency", "O&M cost", "Discount rate", "Lifetime", "Belongs to the study", "dec_type", "min_date",
               "min_date", "max_date", "max_date"]
 
@@ -419,7 +419,7 @@ def generate_candidates_from_csv(path):
 
         element_found = False
         for element in circuits + transformers + three_windings:
-            if candidate_name == element.name:
+            if candidate_name == element.name.strip():
                 element_found = True
                 for _ in range(num_candidates):
                     if element in circuits:
@@ -428,6 +428,19 @@ def generate_candidates_from_csv(path):
                     elif element in transformers:
                         candidate = create_transformer_candidate(element)
                         key = (element.get("RefBuses")[0].code, element.get("RefBuses")[1].code)
+                        if int(candidate.to_bus) in read_dbae(path):
+                            for tr3w in three_windings:
+                                if element.name.strip() in [tr3w.get("RefTransformers")[0].name.strip(),
+                                                            tr3w.get("RefTransformers")[1].name.strip(),
+                                                            tr3w.get("RefTransformers")[2].name.strip()]:
+                                    candidate = create_tr3w_candidate(tr3w)
+                                    key = (
+                                        tr3w.get("RefTransformers")[0].get("RefBuses")[0].code,
+                                        tr3w.get("RefTransformers")[1].get("RefBuses")[0].code,
+                                        tr3w.get("RefTransformers")[2].get("RefBuses")[0].code
+                                    )
+                                    break
+
                     elif element in three_windings:
                         candidate = create_tr3w_candidate(element)
                         key = (
@@ -444,7 +457,7 @@ def generate_candidates_from_csv(path):
                         nc_parallel = nc_parallel_circuits
 
                     if key not in nc_parallel:
-                        nc_parallel[key] = 0
+                        nc_parallel[key] = element.get("Nc") + 1
 
                     candidate.updated_nc = nc_parallel[key]
                     nc_parallel[key] += 1
@@ -453,11 +466,11 @@ def generate_candidates_from_csv(path):
                     candidate.o_m_cost = row['O&M cost']
                     candidate.min_date_year = row['min_date']
 
-                    if element in circuits:
+                    if isinstance(candidate, LineCandidate):
                         line_candidates.append(candidate)
-                    elif element in transformers:
+                    elif isinstance(candidate, TrafoCandidate):
                         trafo_candidates.append(candidate)
-                    elif element in three_windings:
+                    elif isinstance(candidate, Tr3wCandidate):
                         tr3w_candidates.append(candidate)
 
         if not element_found:
@@ -465,15 +478,16 @@ def generate_candidates_from_csv(path):
 
     if line_candidates:
         write_dlad(path, line_candidates)
+
+    trafo_candidates_filtered = [tc for tc in trafo_candidates if int(tc.to_bus) not in dbae_buses]
     if trafo_candidates:
         dbae_buses = read_dbae(path)
-        trafo_candidates_filtered = [tc for tc in trafo_candidates if int(tc.to_bus) not in dbae_buses]
         write_dtad(path, trafo_candidates_filtered)
     if tr3w_candidates:
         write_dt3ad(path, tr3w_candidates)
 
     print(
-        f"Generated candidates from CSV: {len(line_candidates)} lines, {len(trafo_candidates)} trafos, {len(tr3w_candidates)} tr3ws.")
+        f"Generated candidates from CSV: {len(line_candidates)} lines, {len(trafo_candidates_filtered)} trafos, {len(tr3w_candidates)} tr3ws.")
 
 
 def generate_candidates_from_usecir(path, max_use):
@@ -485,9 +499,9 @@ def generate_candidates_from_usecir(path, max_use):
     line_candidates = []
     for circuit in circuits:
         if circuit.get("FlagMonitored") == 1:
-            max_circ_use = usecir[circuit.name].max()
+            max_circ_use = usecir[circuit.name.strip()].max()
             if max_circ_use > max_use:
-                print(f"{circuit.name}: {max_circ_use}")
+                print(f"{circuit.name.strip()}: {max_circ_use}")
                 key = (circuit.get("RefBuses")[0].code, circuit.get("RefBuses")[1].code)
                 number_candidates = max(0, int(max_circ_use / max_use) - 1)
                 for i in range(number_candidates + 1):
@@ -504,9 +518,9 @@ def generate_candidates_from_usecir(path, max_use):
 
     for transformer in transformers:
         if transformer.get("FlagMonitored") == 1:
-            max_circ_use = usecir[transformer.name].max() if transformer.name in usecir else 0
+            max_circ_use = usecir[transformer.name.strip()].max() if transformer.name.strip() in usecir else 0
             if max_circ_use > max_use:
-                print(f"{transformer.name}: {max_circ_use}")
+                print(f"{transformer.name.strip()}: {max_circ_use}")
                 number_candidates = max(0, int(max_circ_use / max_use))
                 key = (transformer.get("RefBuses")[0].code, transformer.get("RefBuses")[1].code)
                 for i in range(number_candidates):
@@ -524,12 +538,12 @@ def generate_candidates_from_usecir(path, max_use):
         if any([tr3w.get("RefTransformers")[0].get("FlagMonitored"),
                 tr3w.get("RefTransformers")[1].get("FlagMonitored"),
                 tr3w.get("RefTransformers")[2].get("FlagMonitored")]):
-            max_circ_use = max(usecir[tr3w.get("RefTransformers")[0].name].max(),
-                               usecir[tr3w.get("RefTransformers")[1].name].max(),
-                               usecir[tr3w.get("RefTransformers")[2].name].max()) \
-                if (tr3w.get("RefTransformers")[0].name in usecir and
-                    tr3w.get("RefTransformers")[1].name in usecir and
-                    tr3w.get("RefTransformers")[2].name in usecir) \
+            max_circ_use = max(usecir[tr3w.get("RefTransformers")[0].name.strip()].max(),
+                               usecir[tr3w.get("RefTransformers")[1].name.strip()].max(),
+                               usecir[tr3w.get("RefTransformers")[2].name.strip()].max()) \
+                if (tr3w.get("RefTransformers")[0].name.strip() in usecir and
+                    tr3w.get("RefTransformers")[1].name.strip() in usecir and
+                    tr3w.get("RefTransformers")[2].name.strip() in usecir) \
                 else 0
             key = (tr3w.get("RefTransformers")[0].get("RefBuses")[0].code,
                    tr3w.get("RefTransformers")[1].get("RefBuses")[0].code,
