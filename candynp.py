@@ -3,6 +3,7 @@ import pandas as pd
 import psr.factory as factory
 from dataclasses import dataclass
 import argparse
+import psr.graf
 
 
 @dataclass
@@ -217,7 +218,10 @@ def parallel_transformer_numbers_tr3w(tr3ws):
 
 
 def read_usecir(path):
-    usecir = pd.read_csv(os.path.join(path, "usecir.csv"), skiprows=3)
+    try:
+        usecir = psr.graf.load_as_dataframe(os.path.join(path, "usecir.bin"))
+    except FileNotFoundError:
+        usecir = pd.read_csv(os.path.join(path, "usecir.csv"), skiprows=3)
     return usecir
 
 
